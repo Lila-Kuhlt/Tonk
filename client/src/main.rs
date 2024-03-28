@@ -10,15 +10,15 @@ fn main() -> std::io::Result<()> {
 
     let mut server = Server {
         stream,
-        game: GameState::new(),
     };
+    let mut gamestate = GameState::new();
     server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string()))?;
 
     loop {
         let mut response = String::new();
         server.stream.read_to_string(&mut response)?;
         for line in response.lines() {
-            server.game.process_response(line);
+            gamestate.process_response(line, &mut server);
         }
     }
 }
@@ -59,7 +59,6 @@ impl std::fmt::Display for Command {
 
 struct Server {
     stream: std::net::TcpStream,
-    game: GameState,
 }
 
 impl Server {
@@ -83,10 +82,13 @@ impl GameState {
             players: vec![],
         }
     }
-    fn process_response(&mut self, response: &str) {
+    fn process_response(&mut self, response: &str, server: &mut Server) {
         println!(">{}", response);
         match response.split_once(' ').unwrap_or((response, "")) {
-            ("MOTD", msg) => println!("Message of the day: {}", msg),
+            ("MOTD", msg) => {
+                println!("Message of the day: {}", msg);
+                server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string())).expect("Failed to send login command");
+            },
             ("HELLO", id) => self.id = id.parse().unwrap_or_default(),
             ("START", dimensions) => {
                 let dimensions: Vec<_> = dimensions
@@ -105,10 +107,16 @@ impl GameState {
                     .expect("Failed to parse map")
             }
             ("END", "") => (),
-            ("TICK", "") => todo!(),
-
+            ("TICK", "") => {
+                let command = self.generate_response();
+                server.send_command(command).expect("Failed to send command");
+            },
             _ => panic!("Unknown response: {}", response),
         }
+    }
+
+    fn generate_response(&self) -> Command {
+        Command::Move(Direction::Up)
     }
 }
 
