@@ -10,7 +10,7 @@ use std::{
 
 use tokio::io::BufStream;
 
-use crate::protocol::{ServerMessage, ServerResponse};
+use crate::protocol::ServerResponse;
 
 #[derive(Copy, Clone)]
 pub enum Position {
@@ -26,6 +26,7 @@ pub enum Tile {
 }
 
 pub struct Player {
+    id: u32,
     health: u32,
     position: Position,
     addr: SocketAddr,
@@ -37,12 +38,17 @@ pub struct JoinRequest {
     pub addr: SocketAddr,
 }
 
+pub struct GameSettings {
+    player_health: u32,
+    tick_speed: Duration,
+}
+
 pub struct Game {
     fields: Vec<Tile>,
     next_client_id: u32,
     players: HashMap<u32, Player>,
-    tick_speed: Duration,
     join_requests: mpsc::Receiver<JoinRequest>,
+    settings: GameSettings,
 }
 
 impl Game {
@@ -51,16 +57,19 @@ impl Game {
             fields: vec![Tile::Air; size * size],
             next_client_id: 0,
             players: HashMap::new(),
-            tick_speed: Duration::ZERO,
             join_requests: receiver,
+            settings: GameSettings {
+                player_health: 100,
+                tick_speed: Duration::ZERO,
+            },
         }
     }
 
     pub async fn send_client(&mut self, target: u32, msg: ServerResponse) -> std::io::Result<()> {
         if let Some(client) = self.players.get_mut(&target) {
             let msg = match msg {
-                Ok(msg) => format!("{msg}\n\0"),
-                Err(msg) => format!("ERROR {msg:?}\n\0"),
+                Ok(msg) => format!("{msg}\n"),
+                Err(msg) => format!("ERROR {msg:?}\n"),
             };
 
             client.stream.write(msg.as_bytes()).await?;
@@ -70,7 +79,22 @@ impl Game {
         Ok(())
     }
 
-    pub async fn handle_connection_requests(&mut self) {}
+    pub async fn handle_connection_requests(&mut self) {
+        for JoinRequest { stream, addr } in self.join_requests.iter() {
+            let player = Player {
+                id: self.next_client_id,
+                health: self.settings.player_health,
+                position: Position::Index(0), // Fix this lol
+                addr,
+                stream,
+            };
 
-    pub async fn tick(&mut self) {}
+            self.next_client_id += 1;
+            self.players.insert(player.id, player);
+        }
+    }
+
+    pub async fn tick(&mut self) {
+
+    }
 }
