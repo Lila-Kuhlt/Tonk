@@ -9,9 +9,9 @@ pub enum Position {
 }
 
 #[derive(Copy, Clone)]
-pub enum Field {
+pub enum Tile {
     Air,
-    Obstacle,
+    Wall,
     Player(u32),
 }
 
@@ -23,16 +23,16 @@ pub struct Player {
 }
 
 pub struct Game {
-    fields: Vec<Field>,
+    fields: Vec<Tile>,
     next_client_id: u32,
-    map: HashMap<u32, Player>
+    map: HashMap<u32, Player>,
     tick_speed: Duration,
 }
 
 impl Game {
     pub fn new(size: usize) -> Self {
         Self {
-            fields: vec![Field::Air; size * size],
+            fields: vec![Tile::Air; size * size],
             next_client_id: 0,
             map: HashMap::new(),
             tick_speed: Duration::ZERO,
