@@ -62,6 +62,7 @@ impl Server {
     fn send_command(&mut self, command: Command) -> std::io::Result<()> {
         let command_str = command.to_string();
         self.stream.write(command_str.as_bytes())?;
+        self.stream.write(b"\n")?;
         Ok(())
     }
 }
