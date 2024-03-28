@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use game::{Game, JoinRequest};
-use protocol::{ClientMessage, ServerError};
+use protocol::{GameCommand, ServerError};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio::{io::BufStream, net::TcpListener};
 
-mod ext;
+use crate::protocol::LoginCommand;
+
+mod util;
 mod game;
 mod protocol;
 
@@ -29,8 +31,8 @@ async fn main() -> std::io::Result<()> {
         let mut game = game;
 
         loop {
-            game.tick().await;
             game.handle_connection_requests().await;
+            game.tick().await;
         }
     });
 
@@ -65,6 +67,7 @@ async fn main() -> std::io::Result<()> {
     }
 }
 
+// this is ugly
 async fn connect_handler(
     stream: &mut BufStream<TcpStream>,
     user_map: &Arc<Mutex<HashMap<String, String>>>,
@@ -79,11 +82,7 @@ async fn connect_handler(
     buffer.pop();
     println!("-> {buffer}");
 
-    let client_req: ClientMessage = buffer.parse()?;
-
-    let ClientMessage::Login { username, password } = client_req else {
-        return Err(ServerError::UnexpectedCommand);
-    };
+    let LoginCommand { username, password } = buffer.parse()?;
 
     if username.is_empty() || password.is_empty() {
         return Err(ServerError::InvalidFormat);
@@ -97,10 +96,6 @@ async fn connect_handler(
             return Err(ServerError::InvalidCredentials);
         }
     }
-
-    stream.write(b"HELLO 99\n").await?;
-    stream.flush().await?;
-    println!("<- HELLO");
 
     Ok(())
 }

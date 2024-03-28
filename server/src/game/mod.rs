@@ -1,6 +1,9 @@
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+mod map;
+pub use map::*;
+
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -10,20 +13,7 @@ use std::{
 
 use tokio::io::BufStream;
 
-use crate::protocol::ServerResponse;
-
-#[derive(Copy, Clone)]
-pub enum Position {
-    Index(usize),
-    XY(u32, u32),
-}
-
-#[derive(Copy, Clone)]
-pub enum Tile {
-    Air,
-    Wall,
-    Player(u32),
-}
+use crate::protocol::{GameCommand, ServerResponse};
 
 pub struct Player {
     id: u32,
@@ -31,6 +21,7 @@ pub struct Player {
     position: Position,
     addr: SocketAddr,
     stream: BufStream<TcpStream>,
+    command: GameCommand,
 }
 
 pub struct JoinRequest {
@@ -41,26 +32,28 @@ pub struct JoinRequest {
 pub struct GameSettings {
     player_health: u32,
     tick_speed: Duration,
+    connection_limit: u32,
 }
 
 pub struct Game {
-    fields: Vec<Tile>,
     next_client_id: u32,
     players: HashMap<u32, Player>,
     join_requests: mpsc::Receiver<JoinRequest>,
     settings: GameSettings,
+    map: Map,
 }
 
 impl Game {
-    pub fn new(size: usize, receiver: Receiver<JoinRequest>) -> Self {
+    pub fn new(width: usize, height: usize, receiver: Receiver<JoinRequest>) -> Self {
         Self {
-            fields: vec![Tile::Air; size * size],
+            map: Map::new(width, height),
             next_client_id: 0,
             players: HashMap::new(),
             join_requests: receiver,
             settings: GameSettings {
+                connection_limit: 1000,
                 player_health: 100,
-                tick_speed: Duration::ZERO,
+                tick_speed: Duration::from_secs(1),
             },
         }
     }
@@ -81,10 +74,15 @@ impl Game {
 
     pub async fn handle_connection_requests(&mut self) {
         for JoinRequest { stream, addr } in self.join_requests.iter() {
+            if self.players.len() > self.settings.connection_limit as usize {
+                continue;
+            }
+
             let player = Player {
                 id: self.next_client_id,
                 health: self.settings.player_health,
                 position: Position::Index(0), // Fix this lol
+                command: GameCommand::Nop,
                 addr,
                 stream,
             };
@@ -95,6 +93,11 @@ impl Game {
     }
 
     pub async fn tick(&mut self) {
-
+        for player in self.players.values_mut() {
+            let command = std::mem::take(&mut player.command);
+            if command == GameCommand::Nop {
+                continue;
+            }
+        }
     }
 }
