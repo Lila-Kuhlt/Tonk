@@ -6,9 +6,7 @@ const PASSWORD: &str = "test";
 fn main() -> std::io::Result<()> {
     println!("Starting tonk client");
 
-    let mut stream = std::net::TcpStream::connect("192.168.209.237:1312")?;
-    let mut output = String::new();
-    stream.read_to_string(&mut output)?;
+    let stream = std::net::TcpStream::connect("192.168.209.237:1312")?;
 
     let mut server = Server {
         stream,
@@ -16,7 +14,13 @@ fn main() -> std::io::Result<()> {
     };
     server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string()))?;
 
-    Ok(())
+    loop {
+        let mut response = String::new();
+        server.stream.read_to_string(&mut response)?;
+        for line in response.lines() {
+            server.game.process_response(line);
+        }
+    }
 }
 
 enum Direction {
@@ -80,13 +84,21 @@ impl GameState {
         }
     }
     fn process_response(&mut self, response: &str) {
-        dbg!(&response);
-        match response.split(' ').collect::<Vec<_>>().as_slice() {
-            &["DIE"] => (),
-            &["WIN"] => (),
-            &["HELLO", id] => self.id = id.parse().unwrap_or_default(),
-            &["MAP", data] => self.map = Map::parse(self.map.width, self.map.height, data.to_string()),
-            // &["PLAYER", player] => self.players.push(Player::try_from(player).unwrap()),
+        println!(">{}", response);
+        match response.split_once(' ').unwrap_or((response, "")) {
+            ("MOTD", msg) => println!("Message of the day: {}", msg),
+            ("HELLO", id) => self.id = id.parse().unwrap_or_default(),
+            ("START", dimensions) => {
+                let dimensions: Vec<_> = dimensions.split(' ').map(|x| x.parse().expect("Failed Parsing Dimension '{x}'")).collect::<Vec<_>>();
+                self.map = Map::new(dimensions[0], dimensions[1]);
+            }
+            ("DIE","") => (),
+            ("WIN","") => (),
+            ("PLAYER", players) => self.players = parse_players(players).expect("Failed to parse players"),
+            ("MAP", data) => self.map = Map::parse(self.map.width, self.map.height, data.to_string()).expect("Failed to parse map"),
+            ("END", "") => (),
+            ("TICK", "") => todo!(),
+
             _ => panic!("Unknown response: {}", response),
         }
     }
@@ -139,13 +151,16 @@ impl Map {
         self.data[(y * self.width + x) as usize] = value;
     }
 
-    fn parse(width: u16, height: u16, data: String) -> Map {
+    fn parse(width: u16, height: u16, data: String) -> Result<Map, ()> {
         let data: Vec<_> = data.chars().map(Tile::from_char).collect();
-        Map {
+        if data.len() != (width * height) as usize {
+            return Err(());
+        }
+        Ok(Map {
             width,
             height,
             data,
-        }
+        })
     }
 }
 
