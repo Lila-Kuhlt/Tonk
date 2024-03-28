@@ -1,4 +1,4 @@
-use std::io::prelude::*;
+use std::{fmt::Write, io::prelude::*, io::Write as IOWrite};
 
 const USER: &str = "nixi";
 const PASSWORD: &str = "test";
@@ -45,12 +45,12 @@ enum Command {
     Login(String, String),
 }
 
-impl Command {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Command::Fire(x, y) => format!("FIRE {} {}", x, y),
-            Command::Move(dir) => format!("MOVE {}", dir.to_string()),
-            Command::Login(user, pass) => format!("LOGIN {} {}", user, pass),
+            Command::Fire(x, y) => write!(f, "FIRE {} {}", x, y),
+            Command::Move(dir) => write!(f, "MOVE {}", dir.to_string()),
+            Command::Login(user, pass) => write!(f, "LOGIN {} {}", user, pass),
         }
     }
 }
@@ -62,9 +62,8 @@ struct Server {
 
 impl Server {
     fn send_command(&mut self, command: Command) -> std::io::Result<()> {
-        let command_str = command.to_string();
-        self.stream.write(command_str.as_bytes())?;
-        Ok(())
+        writeln!(self.stream, "{command}");
+        self.stream.flush()
     }
 }
 
