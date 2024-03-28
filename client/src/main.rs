@@ -89,13 +89,21 @@ impl GameState {
             ("MOTD", msg) => println!("Message of the day: {}", msg),
             ("HELLO", id) => self.id = id.parse().unwrap_or_default(),
             ("START", dimensions) => {
-                let dimensions: Vec<_> = dimensions.split(' ').map(|x| x.parse().expect("Failed Parsing Dimension '{x}'")).collect::<Vec<_>>();
+                let dimensions: Vec<_> = dimensions
+                    .split(' ')
+                    .map(|x| x.parse().expect("Failed Parsing Dimension '{x}'"))
+                    .collect::<Vec<_>>();
                 self.map = Map::new(dimensions[0], dimensions[1]);
             }
-            ("DIE","") => (),
-            ("WIN","") => (),
-            ("PLAYER", players) => self.players = parse_players(players).expect("Failed to parse players"),
-            ("MAP", data) => self.map = Map::parse(self.map.width, self.map.height, data.to_string()).expect("Failed to parse map"),
+            ("DIE", "") => (),
+            ("WIN", "") => (),
+            ("PLAYER", players) => {
+                self.players = parse_players(players).expect("Failed to parse players")
+            }
+            ("MAP", data) => {
+                self.map = Map::parse(self.map.width, self.map.height, data.to_string())
+                    .expect("Failed to parse map")
+            }
             ("END", "") => (),
             ("TICK", "") => todo!(),
 
