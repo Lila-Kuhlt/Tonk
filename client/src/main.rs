@@ -1,4 +1,4 @@
-use std::{fmt::Write, io::prelude::*, io::Write as IOWrite};
+use std::{fmt::Write, io::prelude::*, io::Write as IOWrite, io::BufWriter, io::BufRead, io::BufReader};
 
 const USER: &str = "nixi";
 const PASSWORD: &str = "test";
@@ -7,18 +7,21 @@ fn main() -> std::io::Result<()> {
     println!("Starting tonk client");
 
     let stream = std::net::TcpStream::connect("192.168.209.237:1312")?;
+    let mut reader = std::io::BufReader::new(stream.try_clone()?);
 
-    let mut server = Server {
+    /*let mut server = Server {
         stream,
-    };
+    };*/
     let mut gamestate = GameState::new();
-    server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string()))?;
 
     loop {
         let mut response = String::new();
-        server.stream.read_to_string(&mut response)?;
-        for line in response.lines() {
-            gamestate.process_response(line, &mut server);
+        reader.read_line(&mut response)?;
+        if response.contains('\n') {
+            let response = response.trim();
+            for line in response.lines() {
+                gamestate.process_response(line, &stream);
+            }
         }
     }
 }
@@ -57,14 +60,15 @@ impl std::fmt::Display for Command {
     }
 }
 
-struct Server {
-    stream: std::net::TcpStream,
+trait CommandSink {
+    fn send_command(&mut self, command: Command) -> std::io::Result<()>;
 }
 
-impl Server {
+impl<T:IOWrite> CommandSink for T {
     fn send_command(&mut self, command: Command) -> std::io::Result<()> {
-        writeln!(self.stream, "{command}");
-        self.stream.flush()
+        println!("<- {}", command.to_string());
+        writeln!(self, "{command}");
+        self.flush()
     }
 }
 
@@ -82,20 +86,24 @@ impl GameState {
             players: vec![],
         }
     }
-    fn process_response(&mut self, response: &str, server: &mut Server) {
-        println!(">{}", response);
+    fn process_response(&mut self, response: &str, mut server:  impl IOWrite) {
+        println!("-> {}", response);
         match response.split_once(' ').unwrap_or((response, "")) {
             ("MOTD", msg) => {
                 println!("Message of the day: {}", msg);
                 server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string())).expect("Failed to send login command");
             },
-            ("HELLO", id) => self.id = id.parse().unwrap_or_default(),
-            ("START", dimensions) => {
-                let dimensions: Vec<_> = dimensions
+            ("HELLO", id) => {
+                if !id.is_empty() {
+                    println!("Aaron ist Böse :(");
+                }
+            },
+            ("START", args) => {
+                let dimensions: Vec<_> = args
                     .split(' ')
-                    .map(|x| x.parse().expect("Failed Parsing Dimension '{x}'"))
-                    .collect::<Vec<_>>();
-                self.map = Map::new(dimensions[0], dimensions[1]);
+                    .collect();
+                self.map = Map::new(dimensions[0].parse().expect("Could not parse height"), dimensions[1].parse().expect("Could not parse height"));
+                self.id = dimensions[2].parse().expect("Could not parse ID");
             }
             ("DIE", "") => (),
             ("WIN", "") => (),
