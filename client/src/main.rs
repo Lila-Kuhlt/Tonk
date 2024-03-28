@@ -10,7 +10,10 @@ fn main() -> std::io::Result<()> {
     let mut output = String::new();
     stream.read_to_string(&mut output)?;
 
-    let mut server = Server { stream, game: GameState {} };
+    let mut server = Server {
+        stream,
+        game: GameState {},
+    };
     server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string()))?;
 
     Ok(())
@@ -35,24 +38,24 @@ impl Direction {
 }
 
 enum Command {
-    Fire (u16, u32),
-    Move (Direction),
-    Login (String, String),
+    Fire(u16, u32),
+    Move(Direction),
+    Login(String, String),
 }
 
 impl Command {
     fn to_string(&self) -> String {
         match self {
-            Command::Fire (x, y) => format!("FIRE {} {}", x, y),
-            Command::Move (dir) => format!("MOVE {}", dir.to_string()),
-            Command::Login (user, pass) => format!("LOGIN {} {}", user, pass),
+            Command::Fire(x, y) => format!("FIRE {} {}", x, y),
+            Command::Move(dir) => format!("MOVE {}", dir.to_string()),
+            Command::Login(user, pass) => format!("LOGIN {} {}", user, pass),
         }
     }
 }
 
 struct Server {
     stream: std::net::TcpStream,
-    game: GameState
+    game: GameState,
 }
 
 impl Server {
@@ -63,5 +66,28 @@ impl Server {
     }
 }
 
-struct GameState {
+struct GameState {}
+
+struct Player {
+    x: u32,
+    y: u32,
+    health: u32,
+    id: u32,
+}
+
+impl TryFrom<&str> for Player {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let numbers: Result<Vec<_>, _> = value.split(',').map(|x| x.parse()).collect();
+        let Ok(&[x, y, health, id]) = numbers.as_deref() else {
+            return Err(());
+        };
+        Ok(Player { x, y, health, id })
+    }
+}
+
+fn parse_players(command: &str) -> Result<Vec<Player>, ()> {
+    let players = command.split_whitespace();
+    players.into_iter().map(Player::try_from).collect()
 }
