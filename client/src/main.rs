@@ -12,7 +12,9 @@ fn main() -> std::io::Result<()> {
 
     let mut server = Server {
         stream,
-        game: GameState {},
+        game: GameState {
+            map: Map::new(10, 10),
+        },
     };
     server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string()))?;
 
@@ -62,12 +64,13 @@ impl Server {
     fn send_command(&mut self, command: Command) -> std::io::Result<()> {
         let command_str = command.to_string();
         self.stream.write(command_str.as_bytes())?;
-        self.stream.write(b"\n")?;
         Ok(())
     }
 }
 
-struct GameState {}
+struct GameState {
+    map: Map,
+}
 
 struct Player {
     x: u32,
@@ -91,4 +94,50 @@ impl TryFrom<&str> for Player {
 fn parse_players(command: &str) -> Result<Vec<Player>, ()> {
     let players = command.split_whitespace();
     players.into_iter().map(Player::try_from).collect()
+}
+
+struct Map {
+    width: u16,
+    height: u16,
+    data: Vec<Tile>,
+}
+
+impl Map {
+    fn new(width: u16, height: u16) -> Map {
+        Map {
+            width,
+            height,
+            data: vec![Tile::Empty; (width * height) as usize],
+        }
+    }
+
+    fn get(&self, x: u16, y: u16) -> Tile {
+        self.data[(y * self.width + x) as usize]
+    }
+
+    fn set(&mut self, x: u16, y: u16, value: Tile) {
+        self.data[(y * self.width + x) as usize] = value;
+    }
+
+    fn parse(&mut self, data: String) {
+        self.data = data.chars().map(Tile::from_char).collect();
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Tile {
+    Empty,
+    Wall,
+    Player,
+}
+
+impl Tile {
+    fn from_char(c: char) -> Tile {
+        match c {
+            ' ' => Tile::Empty,
+            '#' => Tile::Wall,
+            'P' => Tile::Player,
+            _ => panic!("Unknown tile type: {}", c),
+        }
+    }
 }
