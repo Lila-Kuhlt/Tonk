@@ -93,10 +93,9 @@ impl GameState {
                 println!("Message of the day: {}", msg);
                 server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string())).expect("Failed to send login command");
             },
+            ("HELLO", "") => (),
             ("HELLO", id) => {
-                if !id.is_empty() {
                     println!("Aaron ist Böse :(");
-                }
             },
             ("START", args) => {
                 let dimensions: Vec<_> = args
