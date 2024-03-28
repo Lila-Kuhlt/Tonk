@@ -31,6 +31,7 @@
           pkg-config
           dbus
           openssl_3
+          bacon
 
           nodePackages.pnpm
           toolchain
