@@ -66,7 +66,7 @@ trait CommandSink {
 
 impl<T:IOWrite> CommandSink for T {
     fn send_command(&mut self, command: Command) -> std::io::Result<()> {
-        println!("<- {}", command.to_string());
+        println!("  <- {}", command.to_string());
         writeln!(self, "{command}");
         self.flush()
     }
@@ -87,15 +87,16 @@ impl GameState {
         }
     }
     fn process_response(&mut self, response: &str, mut server:  impl IOWrite) {
-        println!("-> {}", response);
+        println!("  -> {}", response);
         match response.split_once(' ').unwrap_or((response, "")) {
             ("MOTD", msg) => {
                 println!("Message of the day: {}", msg);
                 server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string())).expect("Failed to send login command");
             },
-            ("HELLO", "") => (),
+            ("HELLO", "") => println!("Authentication done"),
             ("HELLO", id) => {
-                    println!("Aaron ist Böse :(");
+                println!("Authentication done");
+                println!("Aaron ist Böse :(");
             },
             ("START", args) => {
                 let dimensions: Vec<_> = args
@@ -104,8 +105,8 @@ impl GameState {
                 self.map = Map::new(dimensions[0].parse().expect("Could not parse height"), dimensions[1].parse().expect("Could not parse height"));
                 self.id = dimensions[2].parse().expect("Could not parse ID");
             }
-            ("DIE", "") => (),
-            ("WIN", "") => (),
+            ("DIE", "") => println!("U ded :("),
+            ("WIN", "") => println!("U won uwu"),
             ("PLAYER", players) => {
                 self.players = parse_players(players).expect("Failed to parse players")
             }
@@ -113,7 +114,6 @@ impl GameState {
                 self.map = Map::parse(self.map.width, self.map.height, data.to_string())
                     .expect("Failed to parse map")
             }
-            ("END", "") => (),
             ("TICK", "") => {
                 let command = self.generate_response();
                 server.send_command(command).expect("Failed to send command");
