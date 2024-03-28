@@ -10,9 +10,9 @@ use tokio::{io::BufStream, net::TcpListener};
 
 use crate::protocol::LoginCommand;
 
-mod util;
 mod game;
 mod protocol;
+mod util;
 
 struct Server {
     game: Game,
@@ -23,7 +23,7 @@ struct Server {
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     let (sender, receiver) = std::sync::mpsc::sync_channel::<JoinRequest>(64);
-    let game = Game::new(32, receiver);
+    let game = Game::new(32, 32, receiver);
     let usermap = Arc::new(Mutex::new(HashMap::<String, String>::new()));
     let listener = TcpListener::bind("0.0.0.0:1312").await?;
 

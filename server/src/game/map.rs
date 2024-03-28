@@ -50,6 +50,7 @@ impl Map {
     }
 
     pub fn get_tile_mut(&mut self, xy: impl Into<Position>) -> Option<&mut Tile> {
-        self.tiles.get_mut(self.get_index_from_pos(xy))
+        let index = self.get_index_from_pos(xy);
+        self.tiles.get_mut(index)
     }
 }
