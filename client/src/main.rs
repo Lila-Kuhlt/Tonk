@@ -71,6 +71,17 @@ struct GameState {
     map: Map,
 }
 
+impl GamState {
+    fn process_response(&mut self, response: &str) {
+        dbg!(&response);
+        match response.split(' ').collect::<Vec<_>>().as_slice() {
+            &["DIE"] => (),
+            &["WIN"] => (),
+            &["HELLO", id] => self.id = id.parse(),
+        }
+    }
+}
+
 struct Player {
     x: u32,
     y: u32,
