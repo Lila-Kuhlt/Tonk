@@ -12,9 +12,7 @@ fn main() -> std::io::Result<()> {
 
     let mut server = Server {
         stream,
-        game: GameState {
-            map: Map::new(10, 10),
-        },
+        game: GameState::new(),
     };
     server.send_command(Command::Login(USER.to_string(), PASSWORD.to_string()))?;
 
@@ -68,16 +66,28 @@ impl Server {
 }
 
 struct GameState {
+    id: u32,
     map: Map,
+    players: Vec<Player>,
 }
 
-impl GamState {
+impl GameState {
+    fn new() -> GameState {
+        GameState {
+            id: 0,
+            map: Map::new(10, 10),
+            players: vec![],
+        }
+    }
     fn process_response(&mut self, response: &str) {
         dbg!(&response);
         match response.split(' ').collect::<Vec<_>>().as_slice() {
             &["DIE"] => (),
             &["WIN"] => (),
-            &["HELLO", id] => self.id = id.parse(),
+            &["HELLO", id] => self.id = id.parse().unwrap_or_default(),
+            &["MAP", data] => self.map = Map::parse(self.map.width, self.map.height, data.to_string()),
+            // &["PLAYER", player] => self.players.push(Player::try_from(player).unwrap()),
+            _ => panic!("Unknown response: {}", response),
         }
     }
 }
@@ -129,8 +139,13 @@ impl Map {
         self.data[(y * self.width + x) as usize] = value;
     }
 
-    fn parse(&mut self, data: String) {
-        self.data = data.chars().map(Tile::from_char).collect();
+    fn parse(width: u16, height: u16, data: String) -> Map {
+        let data: Vec<_> = data.chars().map(Tile::from_char).collect();
+        Map {
+            width,
+            height,
+            data,
+        }
     }
 }
 
